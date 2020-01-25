@@ -1,0 +1,180 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CloudFormation Stack to Create an AWS Managed Elastic Service using Kinesis Streaming Services.
+
+Parameters:
+  LogBucketName:
+    Type: String
+    Description: Name of Amazon S3 bucket for log [a-z][a-z0-9]*
+
+  KinesisStreamName:
+    Type: String
+    Description: Name of Kinesis Stream Name for log [a-z][a-z0-9]*
+
+  ElasticsearchDomainName:
+    Type: String
+    Description: Name of Elasticsearch domain for log [a-z][a-z0-9]*
+
+  ElasticsearchIndexName:
+    Type: String
+    Description: Name of Elasticsearch index from Kinesis Firehose [a-z][a-z0-9]*
+    
+  FirehoseName:
+    Type: String
+    Description: DeliveryStream for ES and S3 [a-z][a-z0-9]*
+
+Resources: 
+  KinesisDomainCreation:
+    Type: "AWS::Kinesis::Stream"
+    Properties:
+      Name: !Sub "${KinesisStreamName}"
+      ShardCount: 5
+
+  ElasticsearchDomain:
+    Type: AWS::Elasticsearch::Domain
+    Properties:
+      DomainName: !Sub "${ElasticsearchDomainName}"
+      ElasticsearchVersion: '6.8'
+      ElasticsearchClusterConfig:
+        InstanceCount: '1'
+        InstanceType: t2.small.elasticsearch
+      EBSOptions:
+        EBSEnabled: 'true'
+        Iops: 0
+        VolumeSize: 10
+        VolumeType: gp2
+      SnapshotOptions:
+        AutomatedSnapshotStartHour: '0'
+      AccessPolicies:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS: '*' # Need to be replaced with appropriate value
+          Action: es:*
+          Resource: '*' # Need to be replaced with appropriate value
+          #Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticsearchDomainName}/*"
+      AdvancedOptions:
+        rest.action.multi.allow_explicit_index: 'true'
+
+  ESDeliverystream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    DependsOn:
+      - ElasticsearchDomain
+      - DeliveryRole
+      - DeliveryPolicy
+    Properties:
+      DeliveryStreamName: !Sub "${FirehoseName}"
+      DeliveryStreamType: KinesisStreamAsSource
+      KinesisStreamSourceConfiguration:
+        KinesisStreamARN: !GetAtt KinesisDomainCreation.Arn
+        RoleARN: !GetAtt DeliveryRole.Arn
+      ElasticsearchDestinationConfiguration:
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 1
+        CloudWatchLoggingOptions: 
+            Enabled: false
+        DomainARN: !GetAtt ElasticsearchDomain.DomainArn
+        IndexName: "demoLogs"
+        IndexRotationPeriod: "NoRotation" # NoRotation, OneHour, OneDay, OneWeek, or OneMonth.
+        TypeName: "fromFirehose"
+        RetryOptions:
+          DurationInSeconds: 60
+        RoleARN: !GetAtt DeliveryRole.Arn
+        S3BackupMode: FailedDocumentsOnly
+        S3Configuration:
+          BucketARN: !Sub "arn:aws:s3:::${LogBucketName}"
+          BufferingHints:
+            IntervalInSeconds: 60
+            SizeInMBs: 1
+          CompressionFormat: "UNCOMPRESSED"
+          RoleARN: !GetAtt DeliveryRole.Arn 
+          CloudWatchLoggingOptions: 
+            Enabled: true
+            LogGroupName: "deliverystream"
+            LogStreamName: "s3Backup"
+
+  DeliveryRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: 'sts:AssumeRole'
+            Principal:
+              Service:
+                - 'firehose.amazonaws.com'
+            Condition:
+              StringEquals:
+                'sts:ExternalId' : !Ref 'AWS::AccountId'
+      RoleName: "DeliveryRole"
+
+  DeliveryPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: "DeliveryPolicy"
+      Roles:
+        - !Ref "DeliveryRole"
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 's3:AbortMultipartUpload'
+              - 's3:GetBucketLocation'
+              - 's3:GetObject'
+              - 's3:ListBucket'
+              - 's3:ListBucketMultipartUploads'
+              - 's3:PutObject'
+              - 's3:PutObjectAcl'
+            Resource:
+              - !Sub 'arn:aws:s3:::${LogBucketName}'
+              - !Sub 'arn:aws:s3:::${LogBucketName}/*'
+          - Effect: Allow
+            Action:
+              - 'es:DescribeElasticsearchDomain'
+              - 'es:DescribeElasticsearchDomains'
+              - 'es:DescribeElasticsearchDomainConfig'
+              - 'es:ESHttpPost'
+              - 'es:ESHttpPut'
+            Resource:
+              - !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticsearchDomainName}"
+              - !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticsearchDomainName}/*"
+          - Effect: Allow
+            Action:
+              - 'es:ESHttpGet'
+            Resource:
+              - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticsearchDomainName}/_all/_settings'
+              - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticsearchDomainName}/_cluster/stats'
+              - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticsearchDomainName}/${ElasticsearchIndexName}*/_mapping/superstore'
+              - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticsearchDomainName}/_nodes'
+              - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticsearchDomainName}/_nodes/stats'
+              - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticsearchDomainName}/_nodes/*/stats'
+              - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticsearchDomainName}/_stats'
+              - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticsearchDomainName}/${ElasticsearchIndexName}*/_stats'
+          - Effect: Allow
+            Action:
+              - 'logs:PutLogEvents'
+            Resource:
+              - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kinesisfirehose/:log-stream:*'
+          - Effect: Allow
+            Action:
+              - 'kinesis:DescribeStream'
+              - 'kinesis:GetShardIterator'
+              - 'kinesis:GetRecords'
+            Resource: !Sub 'arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/%FIREHOSE_STREAM_NAME%'
+          - Effect: Allow
+            Action:
+              - 'kinesis:DescribeStream'
+              - 'kinesis:GetShardIterator'
+              - 'kinesis:GetRecords'
+              - 'kinesis:CreateStream'
+            Resource: !Sub 'arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${KinesisStreamName}'
+
+  LogBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref "LogBucketName"
+      AccessControl: Private
+
