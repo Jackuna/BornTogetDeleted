@@ -135,7 +135,7 @@ def printtotals(transferred, tobetransferred):
 def sftp_transport():
 
     start = timer()
-    host, port = "4.tcp.ngrok.io", 19857
+    host, port = "4.tcp.ngrok.io", 12475
     #host, port = "192.168.106.200", 22
     #host, port = "192.168.56.1", 2223
     username, password = 'sftpadmin', 'redhat'
