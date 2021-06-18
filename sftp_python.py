@@ -205,7 +205,7 @@ def sftp_transport():
 
 
     except paramiko.SSHException as ssherror:
-        print(ssherror)
+        print(ssherror, username, password,host,port)
         logging.error(ssherror)
 
 
