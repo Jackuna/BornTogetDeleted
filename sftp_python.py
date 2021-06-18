@@ -149,6 +149,7 @@ def sftp_transport():
         sftp = paramiko.SFTPClient.from_transport(transport)
         # SFTP Commands
         file_list = sftp.listdir()
+        remote_dir = "/home/sftpadmin/"
 
         def download_file(remote_get_loc, local_put_loc):
 
@@ -165,7 +166,7 @@ def sftp_transport():
             #print("checking", file_name )
             if bool(re.fullmatch(prefix + '[0-9]{4,5}.tar', file_name)) and (file_name not in download_dict[today].keys()):
                 print("Downloading file :", file_name)
-                transpose_input1 = "/" + file_name
+                transpose_input1 = remote_dir + file_name
                 get_cwd = os.getcwd()
                 transpose_input2 = get_cwd + "/" + file_name
                 get_size = str(sftp.lstat(transpose_input1)).rsplit(sep=' ', maxsplit=5)[1]
