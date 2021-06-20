@@ -135,7 +135,7 @@ def printtotals(transferred, tobetransferred):
 def sftp_transport():
 
     start = timer()
-    host, port = "3.108.62.86", 22
+    host, port = "13.126.198.130", 22
     #host, port = "192.168.106.200", 22
     #host, port = "192.168.56.1", 2223
     username, password = 'sftpadmin', 'redhat'
