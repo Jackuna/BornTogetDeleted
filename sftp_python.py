@@ -27,8 +27,9 @@ dt = datetime.now()
 today = dt.strftime('%m%d%y')
 download_dict = {today: {}}
 today_file = today+'-download_staus.json'
-host=$HOST
-port=$PORT
+host=os.environ['HOST']
+port=os.environ['PORT']
+
 
 s3 = boto3.client('s3')
 
