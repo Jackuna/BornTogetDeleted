@@ -27,6 +27,8 @@ dt = datetime.now()
 today = dt.strftime('%m%d%y')
 download_dict = {today: {}}
 today_file = today+'-download_staus.json'
+host=$HOST
+port=$PORT
 
 s3 = boto3.client('s3')
 
@@ -135,7 +137,7 @@ def printtotals(transferred, tobetransferred):
 def sftp_transport():
 
     start = timer()
-    host, port = "13.126.198.130", 22
+    #host, port = "13.126.198.130", 22
     #host, port = "192.168.106.200", 22
     #host, port = "192.168.56.1", 2223
     username, password = 'sftpadmin', 'redhat'
