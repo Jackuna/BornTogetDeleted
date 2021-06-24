@@ -152,7 +152,7 @@ def sftp_transport():
         sftp = paramiko.SFTPClient.from_transport(transport)
         # SFTP Commands
         file_list = sftp.listdir()
-        remote_dir = "/home/sftpadmin/"
+        remote_dir = os.environ['REMOTE_SFTP_LOCATION']
 
         def download_file(remote_get_loc, local_put_loc):
 
