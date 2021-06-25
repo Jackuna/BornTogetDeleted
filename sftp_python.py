@@ -29,6 +29,7 @@ download_dict = {today: {}}
 today_file = today+'-download_staus.json'
 host=os.environ['HOST']
 port=int(os.environ['PORT'])
+old_file_prefix = os.environ['OLD_FILE_PREFIX']
 
 
 s3 = boto3.client('s3')
@@ -98,8 +99,7 @@ def update_record(filename, filestatus, remote_file_size):
         json.dump(download_dict, outfile)
 
 
-def remove_old_artifacts(prefix):
-
+def remove_old_artifacts(old_file_prefix):
     # Delete old artifacts from local file system.
     try:
         get_list = os.listdir()
@@ -214,7 +214,7 @@ def sftp_transport():
 
 
 try:
-    remove_old_artifacts('pod061721')
+    remove_old_artifacts(old_file_prefix)
     check_today_download_status()
     sftp_transport()
 except Exception as functionError:
