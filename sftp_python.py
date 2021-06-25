@@ -277,7 +277,7 @@ def upload_tos3_task():
         print("Local file not found", e)
 
 try:
-    remove_old_artifacts(old_file_prefix)
+    #remove_old_artifacts(old_file_prefix)
     check_todays_up_down_status()
     sftp_transport()
 except Exception as functionError:
