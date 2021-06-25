@@ -126,7 +126,7 @@ def remove_old_artifacts(old_file_prefix):
 
 
     for file in get_list:
-        if bool(re.fullmatch(prefix + '[0-9]{4,5}.tar', file)):
+        if bool(re.fullmatch(old_file_prefix + '[0-9]{4,5}.tar', file)):
             joined_data = get_cwd + "/" + file
             os.remove(joined_data)
 
