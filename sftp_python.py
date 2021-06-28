@@ -60,7 +60,7 @@ def check_todays_up_down_status():
     except ClientError as exception1:
         if exception1.response['Error']['Code'] == "404":
             print("The object does not exist.")
-            logging.info("The object does not exist. : %s " % (today_file), exc_info=True)
+            logging.info("The object does not exist. : %s " % (today_file))
 
         else:
             print("exit-exception-1 triggered", exception1)
@@ -93,7 +93,7 @@ def check_existence_of_file():
                     logging.error("JSON Error : %s " % (json_error), exc_info=True)
     except Exception as fileNotfounderror:
         print("Local file not found, Creating blank file", fileNotfounderror)
-        logging.info("Local file not found, Creating blank file : %s " % (fileNotfounderror), exc_info=True)
+        logging.info("Local file not found, Creating blank file : %s " % (fileNotfounderror))
 
 
         with open(today_file, "w") as read_file:
@@ -143,7 +143,7 @@ def remove_old_artifacts(old_file_prefix):
         os.remove(get_cwd + "/" + today_file)
     except Exception as noFileerror:
         print("No Such file", today_file)
-        logging.info("No Such file : %s " % (noFileerror), exc_info=True)
+        logging.info("No Such file : %s " % (noFileerror))
 
 
     for file in get_list:
