@@ -307,23 +307,22 @@ def shutdown(signum, frame):
     upload_file_to_s3(today_file, destination_s3_bucket, today_file)
     # Finish any outstanding requests, then...
     exit(0)
-    
-try:
-    remove_old_artifacts(old_file_prefix)
-    check_todays_up_down_status()
-    sftp_transport()
-except Exception as functionError:
-    print(functionError)
-finally:
-    try:
-        print("Uploading new download-upload status file to S3")
-        #s3.upload_file(today_file, destination_s3_bucket, today_file)
-        upload_file_to_s3(today_file, destination_s3_bucket, today_file)
-        #upload_tos3_task()
-    except Exception as upload_exception:
-        print("Failed to Upload", upload_exception)
-        logging.error("Failed to Upload : %s " % (upload_exception), exc_info=True)
-        
-        
 
-signal.signal(signal.SIGTERM, shutdown)
+if __name__ == '__main__':
+    signal.signal(signal.SIGTERM, shutdown)
+
+    try:
+        remove_old_artifacts(old_file_prefix)
+        check_todays_up_down_status()
+        sftp_transport()
+    except Exception as functionError:
+        print(functionError)
+    finally:
+        try:
+            print("Uploading new download-upload status file to S3")
+            #s3.upload_file(today_file, destination_s3_bucket, today_file)
+            upload_file_to_s3(today_file, destination_s3_bucket, today_file)
+            #upload_tos3_task()
+        except Exception as upload_exception:
+            print("Failed to Upload", upload_exception)
+            logging.error("Failed to Upload : %s " % (upload_exception), exc_info=True)
