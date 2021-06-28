@@ -17,7 +17,7 @@ dt = datetime.now()
 today = dt.strftime('%m%d%y')
 uploaded = 'uploaded_'+today
 upl_down_status_dict = {today: {}, uploaded: {}}
-today_file = today+'-download_staus.json'
+today_file = today+'-download-upload_staus.json'
 
 host = os.environ['HOST']
 port = int(os.environ['PORT'])
@@ -141,20 +141,17 @@ def remove_old_artifacts(old_file_prefix):
     # Delete file download history file aka today_file
     try:
         os.remove(get_cwd + "/" + today_file)
+        for file in get_list:
+            if bool(re.fullmatch(old_file_prefix + '[0-9]{4,5}.tar', file)):
+                joined_data = get_cwd + "/" + file
+                os.remove(joined_data)
+                print("Clean Up Done !")
+                logging.info("Clean Up Done")
+            else:
+                pass
     except Exception as noFileerror:
-        print("No Such file", today_file)
-        logging.info("No Such file : %s " % (noFileerror))
-
-
-    for file in get_list:
-        if bool(re.fullmatch(old_file_prefix + '[0-9]{4,5}.tar', file)):
-            joined_data = get_cwd + "/" + file
-            os.remove(joined_data)
-            print("Clean Up Done !")
-            logging.info("Clean Up Done")
-        else:
-            pass
-
+        print("No old file has been found", today_file)
+        logging.info("No old file has been found : %s " % (noFileerror))
 
 
 
@@ -310,7 +307,7 @@ except Exception as functionError:
     print(functionError)
 finally:
     try:
-        print("Uploading new download_status file to S3")
+        print("Uploading new download-upload status file to S3")
         #s3.upload_file(today_file, destination_s3_bucket, today_file)
         upload_file_to_s3(today_file, destination_s3_bucket, today_file)
         #upload_tos3_task()
