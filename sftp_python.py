@@ -5,10 +5,13 @@ import boto3
 import base64
 import paramiko
 import logging
+import signal, time
 from datetime import datetime, timedelta
 from timeit import default_timer as timer
 from botocore.retries import bucket
 from botocore.errorfactory import ClientError
+
+
 
 
 # Load Variables
@@ -298,7 +301,13 @@ def upload_tos3_task():
                     print(json_error)
     except Exception as e:
         print("Local file not found", e)
-
+        
+def shutdown(signum, frame):
+    print('Caught SIGTERM, shutting down')
+    upload_file_to_s3(today_file, destination_s3_bucket, today_file)
+    # Finish any outstanding requests, then...
+    exit(0)
+    
 try:
     remove_old_artifacts(old_file_prefix)
     check_todays_up_down_status()
@@ -314,3 +323,7 @@ finally:
     except Exception as upload_exception:
         print("Failed to Upload", upload_exception)
         logging.error("Failed to Upload : %s " % (upload_exception), exc_info=True)
+        
+        
+
+signal.signal(signal.SIGTERM, shutdown)
