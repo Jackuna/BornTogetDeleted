@@ -230,7 +230,7 @@ def sftp_transport():
                 # Here it's uploading the above downloaded file into S3.
                 try:
                     upload_file_to_s3(file_name, destination_s3_bucket, file_name)
-                    logging.info(" %s uploaded to S3 " % (file_name), exc_info=True)
+                    logging.info(" %s uploaded to S3 " % (file_name))
                     try:
                         update_upload_record(file_name, "Success")
                     except Exception as update_upload_error:
@@ -268,7 +268,7 @@ def upload_file_to_s3(local_filename, s3_bucket_name, s3_filename):
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/customizations/s3.html
     try:
         print("Uploading file: {}".format(local_filename))
-        logging.info("Uploading file : %s " % (local_filename), exc_info=True)
+        logging.info("Uploading file : %s " % (local_filename))
 
         tc = boto3.s3.transfer.TransferConfig()
         t = boto3.s3.transfer.S3Transfer(client=s3, config=tc)
