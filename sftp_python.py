@@ -291,3 +291,11 @@ finally:
     except Exception as upload_exception:
         print("Failed to Upload", upload_exception)
 
+with open('paramiko.log', "r") as read_file:
+     writer.write(read_file)
+        
+with open('/var/log/ecs/abc.log', 'w') as writer:
+    writer.write("My logs in var/log/ecs")
+    
+        
+        
