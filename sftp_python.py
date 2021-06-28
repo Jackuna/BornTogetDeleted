@@ -291,18 +291,15 @@ finally:
     except Exception as upload_exception:
         print("Failed to Upload", upload_exception)
 
-with open('paramiko.log', "r") as read_file:
-     writer.write(read_file)
         
-with open('/var/log/ecs/abc.log', 'w') as writer:
-    writer.write("My logs in var/log/ecs")
+
 
 newf = open('paramiko.log', "r")
 contents = newf.read()
 newf.close()
 
 
-f = open("/var/log/ecs/abc.logt", "w")
+f = open("/var/log/ecs/abc.log", "w")
 f.write("Woops! I have deleted the content!")
 f.write(contents)
 f.close()
