@@ -7,19 +7,9 @@ import paramiko
 import logging
 from datetime import datetime, timedelta
 from timeit import default_timer as timer
-
+from botocore.retries import bucket
 from botocore.errorfactory import ClientError
 
-# Configure logging
-
-# Paramiko Logger setting.
-from botocore.retries import bucket
-
-paramiko.util.log_to_file("paramiko.log")
-logging.getLogger("paramiko").setLevel(logging.INFO)
-
-# Custom Logger
-logging.basicConfig(filename='paramiko.log', level=logging.INFO, filemode='a+', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Load Variables
 
@@ -28,11 +18,26 @@ today = dt.strftime('%m%d%y')
 uploaded = 'uploaded_'+today
 upl_down_status_dict = {today: {}, uploaded: {}}
 today_file = today+'-download_staus.json'
-host=os.environ['HOST']
-port=int(os.environ['PORT'])
+
+host = os.environ['HOST']
+port = int(os.environ['PORT'])
 old_file_prefix = os.environ['OLD_FILE_PREFIX']
+file_prefix = os.environ['FILE_PREFIX']          # dt.strftime('pod%m%d%y')
+applogs = os.environ['APPLICATION_LOGS']
+destination_s3_bucket = os.environ['DESTINATION_S3_BUCKET']
 
+# Configure logging
 
+# Paramiko Logger setting.
+
+paramiko.util.log_to_file(applogs)
+
+logging.getLogger("paramiko").setLevel(logging.INFO)
+
+# Custom Logger
+logging.basicConfig(filename=applogs, level=logging.INFO, filemode='a+', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Call boto3 s3 class
 s3 = boto3.client('s3')
 
 
@@ -48,17 +53,18 @@ def print_data():
 
 def check_todays_up_down_status():
     try:
-        s3 = boto3.client('s3')
-        s3.head_object(Bucket='ck-devops-dev-artifact-bucket', Key=today_file)
-        s3.download_file('ck-devops-dev-artifact-bucket', today_file, today_file)
+        s3.head_object(Bucket=destination_s3_bucket, Key=today_file)
+        s3.download_file(destination_s3_bucket, today_file, today_file)
         check_existence_of_file()
 
     except ClientError as exception1:
         if exception1.response['Error']['Code'] == "404":
             print("The object does not exist.")
+            logging.info("The object does not exist. : %s " % (today_file), exc_info=True)
 
         else:
             print("exit-exception-1 triggered", exception1)
+            logging.error("exit-exception-1 triggered : %s " % (exception1), exc_info=True)
             quit()
 
 def check_existence_of_file():
@@ -84,9 +90,12 @@ def check_existence_of_file():
                     upl_down_status_dict = json.load(re_read_file)
                 except json.decoder.JSONDecodeError as json_error:
                     print(json_error)
-    except Exception as e:
-        print(e)
-        print("Local file not found, Creating blank file")
+                    logging.error("JSON Error : %s " % (json_error), exc_info=True)
+    except Exception as fileNotfounderror:
+        print("Local file not found, Creating blank file", fileNotfounderror)
+        logging.info("Local file not found, Creating blank file : %s " % (fileNotfounderror), exc_info=True)
+
+
         with open(today_file, "w") as read_file:
             pass
 
@@ -95,50 +104,63 @@ def check_existence_of_file():
 
 def update_download_record(filename, filestatus, remote_file_size):
     global upl_down_status_dict
-
-    upl_down_status_dict[today].update({filename: {'filestatus': filestatus, 'filesize':  remote_file_size}})
-    with open(today_file, "w+") as outfile:
-        json.dump(upl_down_status_dict, outfile)
+    
+    try:
+        upl_down_status_dict[today].update({filename: {'filestatus': filestatus, 'filesize':  remote_file_size}})
+        with open(today_file, "w+") as outfile:
+            json.dump(upl_down_status_dict, outfile)
+    except Exception as update_download_recordError:
+        print("Update download record to temp disctionary failed", update_download_recordError)
+        logging.error("Update download record to temp disctionary failed : %s " % (update_download_recordError), exc_info=True)
 
 
 def update_upload_record(filename, filestatus):
 
     # upl_down_status_dict[today][filename].update({'s3_upload_status': filestatus})
-    upl_down_status_dict[uploaded].update({filename: {'s3_upload_status': filestatus}})
+    try:
 
-    with open(today_file, "w+") as outfile:
-        json.dump(upl_down_status_dict, outfile)
+        upl_down_status_dict[uploaded].update({filename: {'s3_upload_status': filestatus}})
+
+        with open(today_file, "w+") as outfile:
+            json.dump(upl_down_status_dict, outfile)
+    except Exception as update_upload_recordError:
+        print("Update download record to temp disctionary failed", update_upload_recordError)
+        logging.error("Update Upload record to temp disctionary failed : %s " % (update_upload_recordError), exc_info=True)
 
 
 def remove_old_artifacts(old_file_prefix):
     # Delete old artifacts from local file system.
+    # Function is required while debugging within local systems
     try:
         get_list = os.listdir()
         get_cwd = os.getcwd()
     except Exception as fileSystemError:
         print("Unable to create local file list", fileSystemError)
+        logging.error("Unable to create local file list : %s " % (fileSystemError), exc_info=True)
 
     # Delete file download history file aka today_file
     try:
         os.remove(get_cwd + "/" + today_file)
     except Exception as noFileerror:
         print("No Such file", today_file)
+        logging.info("No Such file : %s " % (noFileerror), exc_info=True)
 
 
     for file in get_list:
         if bool(re.fullmatch(old_file_prefix + '[0-9]{4,5}.tar', file)):
             joined_data = get_cwd + "/" + file
             os.remove(joined_data)
-
             print("Clean Up Done !")
+            logging.info("Clean Up Done")
         else:
             pass
 
-# A call back function for sftp transfers.
+
 
 
 def printtotals(transferred, tobetransferred):
 
+    # # A call back function for sftp transfers.
     if transferred != tobetransferred:
         print("Downloaded :" + str(transferred)+"/"+str(tobetransferred), end='\r')
     else:
@@ -175,10 +197,10 @@ def sftp_transport():
 
         for file_name in file_list:
 
-            prefix = dt.strftime('pod%m%d%y')
+            #prefix = dt.strftime('pod%m%d%y')
 
             #print("checking", file_name )
-            if bool(re.fullmatch(prefix + '[0-9]{4,5}.tar', file_name)) and (file_name not in upl_down_status_dict[today].keys()):
+            if bool(re.fullmatch(file_prefix + '[0-9]{4,5}.tar', file_name)) and (file_name not in upl_down_status_dict[today].keys()):
                 print("Downloading file :", file_name)
                 transpose_input1 = remote_dir + file_name
                 get_cwd = os.getcwd()
@@ -207,11 +229,13 @@ def sftp_transport():
                 
                 # Here it's uploading the above downloaded file into S3.
                 try:
-                    upload_file_to_s3(file_name, 'ck-devops-dev-artifact-bucket', file_name)
+                    upload_file_to_s3(file_name, destination_s3_bucket, file_name)
+                    logging.info(" %s uploaded to S3 " % (file_name), exc_info=True)
                     try:
                         update_upload_record(file_name, "Success")
                     except Exception as update_upload_error:
                         print("Error updating the upload status", update_upload_error)
+                        logging.error("Error updating the upload status : %s " % (update_upload_error), exc_info=True)
 
                 except Exception as file_upload_error:
                     print("ERROR while downloading file: msg :", file_upload_error)
@@ -244,18 +268,20 @@ def upload_file_to_s3(local_filename, s3_bucket_name, s3_filename):
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/customizations/s3.html
     try:
         print("Uploading file: {}".format(local_filename))
+        logging.info("Uploading file : %s " % (local_filename), exc_info=True)
 
         tc = boto3.s3.transfer.TransferConfig()
         t = boto3.s3.transfer.S3Transfer(client=s3, config=tc)
 
         t.upload_file(local_filename, s3_bucket_name, s3_filename)
 
-    except Exception as e:
-        print("Error uploading: {}".format(e))
+    except Exception as fileUploadtoS3error:
+        print("Error uploading: {}".format(fileUploadtoS3error))
+        logging.error("error while uploading file: msg : %s " % (fileUploadtoS3error), exc_info=True)
 
 
 def upload_tos3_task():
-    # Opening JSON file and reading it's content.
+    # Debugging function, not called within script.
     try:
         today_file_size = os.path.getsize(today_file)
         if today_file_size == 0:
@@ -267,7 +293,7 @@ def upload_tos3_task():
 
                     for file in upload_dict[today].keys():
                         try:
-                            upload_file_to_s3(file, 'ck-devops-dev-artifact-bucket' , file)
+                            upload_file_to_s3(file, destination_s3_bucket , file)
 
                         except Exception as newError:
                             print(newError)
@@ -277,7 +303,7 @@ def upload_tos3_task():
         print("Local file not found", e)
 
 try:
-    #remove_old_artifacts(old_file_prefix)
+    remove_old_artifacts(old_file_prefix)
     check_todays_up_down_status()
     sftp_transport()
 except Exception as functionError:
@@ -285,23 +311,9 @@ except Exception as functionError:
 finally:
     try:
         print("Uploading new download_status file to S3")
-        #s3.upload_file(today_file, 'ck-devops-dev-artifact-bucket', today_file)
-        upload_file_to_s3(today_file, 'ck-devops-dev-artifact-bucket', today_file)
+        #s3.upload_file(today_file, destination_s3_bucket, today_file)
+        upload_file_to_s3(today_file, destination_s3_bucket, today_file)
         #upload_tos3_task()
     except Exception as upload_exception:
         print("Failed to Upload", upload_exception)
-
-        
-
-
-newf = open('paramiko.log', "r")
-contents = newf.read()
-newf.close()
-
-
-f = open("/var/log/ecs/abc.log", "w")
-f.write("Woops! I have deleted the content!")
-f.write(contents)
-f.close()
-        
-        
+        logging.error("Failed to Upload : %s " % (upload_exception), exc_info=True)
