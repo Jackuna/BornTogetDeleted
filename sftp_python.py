@@ -12,8 +12,6 @@ from botocore.retries import bucket
 from botocore.errorfactory import ClientError
 
 
-
-
 # Load Variables
 
 dt = datetime.now()
@@ -21,6 +19,8 @@ today = dt.strftime('%m%d%y')
 uploaded = 'uploaded_'+today
 upl_down_status_dict = {today: {}, uploaded: {}}
 today_file = today+'-download-upload_staus.json'
+
+# Load Environment Variables
 
 host = os.environ['HOST']
 port = int(os.environ['PORT'])
@@ -34,19 +34,19 @@ destination_s3_bucket = os.environ['DESTINATION_S3_BUCKET']
 # Paramiko Logger setting.
 
 paramiko.util.log_to_file(applogs)
-
 logging.getLogger("paramiko").setLevel(logging.INFO)
 
 # Custom Logger
 logging.basicConfig(filename=applogs, level=logging.INFO, filemode='a+', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-# Call boto3 s3 class
+# Call boto3's s3 function
 s3 = boto3.client('s3')
 
 
 def print_data():
     '''
      This function can be used to get a list of items in current working directory
+     # Debugging function, not called within script.
     '''
 
     get_list = os.listdir()
@@ -55,6 +55,10 @@ def print_data():
 
 
 def check_todays_up_down_status():
+    '''
+     This function is used to check, if we already initiated
+     upload download process earlier within same day.
+    '''
     try:
         s3.head_object(Bucket=destination_s3_bucket, Key=today_file)
         s3.download_file(destination_s3_bucket, today_file, today_file)
@@ -106,6 +110,11 @@ def check_existence_of_file():
 
 
 def update_download_record(filename, filestatus, remote_file_size):
+    '''
+     This function is used to create dictionary value for the
+     files downloaded in local container directory.
+     Updated values are then written in json format to a file.
+    '''
     global upl_down_status_dict
     
     try:
@@ -119,7 +128,11 @@ def update_download_record(filename, filestatus, remote_file_size):
 
 def update_upload_record(filename, filestatus):
 
-    # upl_down_status_dict[today][filename].update({'s3_upload_status': filestatus})
+    '''
+     This function is used to create dictionary value for the
+     uploaded files in s3 bucket.
+     Updated values are then written in json format to a file.
+    '''
     try:
 
         upl_down_status_dict[uploaded].update({filename: {'s3_upload_status': filestatus}})
@@ -132,8 +145,10 @@ def update_upload_record(filename, filestatus):
 
 
 def remove_old_artifacts(old_file_prefix):
-    # Delete old artifacts from local file system.
-    # Function is required while debugging within local systems
+    ''' Delete old artifacts from local file system.
+        Function is required while debugging within local systems
+    '''
+    
     try:
         get_list = os.listdir()
         get_cwd = os.getcwd()
@@ -160,7 +175,7 @@ def remove_old_artifacts(old_file_prefix):
 
 def printtotals(transferred, tobetransferred):
 
-    # # A call back function for sftp transfers.
+    # A call back function for sftp transfers.
     if transferred != tobetransferred:
         print("Downloaded :" + str(transferred)+"/"+str(tobetransferred), end='\r')
     else:
@@ -169,11 +184,18 @@ def printtotals(transferred, tobetransferred):
 
 # Open a transport
 def sftp_transport():
-
+    '''
+     Sibling main function, function is responsible for below tasks
+     1. Establish a SFTP Connection to remote host using authentication credentials.
+     2. Get a list of remote files and select only required file using regex.
+     3. Download the files and make an entry within log file.
+     4. Upload the files into S3 and make an entry within log file.
+     5. Count the total time elapsed during the upload download activity.
+     6. Upload the download and upload status file into s3 bucket.
+    '''
+    
     start = timer()
     #host, port = "13.126.198.130", 22
-    #host, port = "192.168.106.200", 22
-    #host, port = "192.168.56.1", 2223
     username, password = 'sftpadmin', 'redhat'
     try:
         # Connect
@@ -193,13 +215,8 @@ def sftp_transport():
             localpath = local_put_loc
             sftp.get(remotepath, localpath, callback=printtotals)
 
-        #get_list = os.listdir()
-
         for file_name in file_list:
 
-            #prefix = dt.strftime('pod%m%d%y')
-
-            #print("checking", file_name )
             if bool(re.fullmatch(file_prefix + '[0-9]{4,5}.tar', file_name)) and (file_name not in upl_down_status_dict[today].keys()):
                 print("Downloading file :", file_name)
                 transpose_input1 = remote_dir + file_name
@@ -261,11 +278,13 @@ def sftp_transport():
 
 
 def upload_file_to_s3(local_filename, s3_bucket_name, s3_filename):
-
+    '''
+    Function is meant to upload locally downloaded files to s3 bucket.
     # Reference
     # https://medium.com/analytics-vidhya/aws-s3-multipart-upload-download-using-boto3-python-sdk-2dedb0945f11
     # https://stackoverflow.com/questions/34303775/complete-a-multipart-upload-with-boto3
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/customizations/s3.html
+    '''
     try:
         print("Uploading file: {}".format(local_filename))
         logging.info("Uploading file : %s " % (local_filename))
@@ -303,9 +322,13 @@ def upload_tos3_task():
         print("Local file not found", e)
         
 def shutdown(signum, frame):
+    
+    # Finish the must to do tasks before SIGKILL...
+    # This is very usefull while handling SGTERM exception.
+    # https://aws.amazon.com/blogs/containers/graceful-shutdowns-with-ecs/
     print('Caught SIGTERM, shutting down')
+    logging.info("Caught SIGTERM, shutting down... running must do task..)
     upload_file_to_s3(today_file, destination_s3_bucket, today_file)
-    # Finish any outstanding requests, then...
     exit(0)
 
 if __name__ == '__main__':
@@ -320,7 +343,6 @@ if __name__ == '__main__':
     finally:
         try:
             print("Uploading new download-upload status file to S3")
-            #s3.upload_file(today_file, destination_s3_bucket, today_file)
             upload_file_to_s3(today_file, destination_s3_bucket, today_file)
             #upload_tos3_task()
         except Exception as upload_exception:
