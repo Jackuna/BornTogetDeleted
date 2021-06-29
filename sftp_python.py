@@ -220,6 +220,7 @@ def sftp_transport():
             file_list = reprocess_file_list.split(sep=',')
             complete_file_prefix = file_prefix
             regex_string = '[0-9]{10,11}.tar'
+            upl_down_status_dict = {downloaded: {}, uploaded: {}}
             print("Processing :", file_list, complete_file_prefix, regex_string)
 
         def download_file(remote_get_loc, local_put_loc):
