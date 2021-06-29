@@ -217,7 +217,7 @@ def sftp_transport():
 
         else:
             file_list = list(reprocess_file_list)
-            complete_file_prefix = "pod"
+            complete_file_prefix = file_prefix
             regex_string = '[0-9]{10,11}.tar'
 
         def download_file(remote_get_loc, local_put_loc):
@@ -229,12 +229,10 @@ def sftp_transport():
         
         for file_name in file_list:
 
-            if job_type == "upload":
-
             #if bool(re.fullmatch(complete_file_prefix + '[0-9]{4,5}.tar', file_name)) and (file_name not in upl_down_status_dict[downloaded].keys()):
             if bool(re.fullmatch(complete_file_prefix + regex_string, file_name)) and \
-                    ((file_name not in upl_down_status_dict[uploaded].keys()) or \
-                     (file_name not in upl_down_status_dict[downloaded].keys())):
+                ((file_name not in upl_down_status_dict[uploaded].keys()) or \
+                (file_name not in upl_down_status_dict[downloaded].keys())):
 
                 print("Downloading file :", file_name)
                 transpose_input1 = remote_dir + file_name
