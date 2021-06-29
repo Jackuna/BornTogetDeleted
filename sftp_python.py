@@ -341,7 +341,7 @@ def shutdown(signum, frame):
     # https://aws.amazon.com/blogs/containers/graceful-shutdowns-with-ecs/
 
     print('Caught SIGTERM, shutting down')
-    logging.info("Caught SIGTERM, shutting down... running must do task..)
+    logging.info("Caught SIGTERM, shutting down... running must do task..")
     upload_file_to_s3(today_file, destination_s3_bucket, today_file)
     exit(0)
 
