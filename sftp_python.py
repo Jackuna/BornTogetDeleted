@@ -217,7 +217,7 @@ def sftp_transport():
             print("Processing :", file_list, complete_file_prefix, regex_string)
 
         else:
-            file_list = list(reprocess_file_list)
+            file_list = reprocess_file_list.split(sep=',')
             complete_file_prefix = file_prefix
             regex_string = '[0-9]{10,11}.tar'
             print("Processing :", file_list, complete_file_prefix, regex_string)
