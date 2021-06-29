@@ -214,11 +214,13 @@ def sftp_transport():
             file_list = sftp.listdir()
             complete_file_prefix =  file_prefix+yesterday
             regex_string = '[0-9]{4,5}.tar'
+            print("Processing :", file_list, complete_file_prefix, regex_string)
 
         else:
             file_list = list(reprocess_file_list)
             complete_file_prefix = file_prefix
             regex_string = '[0-9]{10,11}.tar'
+            print("Processing :", file_list, complete_file_prefix, regex_string)
 
         def download_file(remote_get_loc, local_put_loc):
 
