@@ -11,13 +11,14 @@ from timeit import default_timer as timer
 from botocore.retries import bucket
 from botocore.errorfactory import ClientError
 
-
 # Load Variables
 
 dt = datetime.now()
 today = dt.strftime('%m%d%y')
+yesterday = (dt - timedelta(days = 1)).strftime('%m%d%y')
 uploaded = 'uploaded_'+today
-upl_down_status_dict = {today: {}, uploaded: {}}
+downloaded = 'downloaded'+today
+upl_down_status_dict = {downloaded: {}, uploaded: {}}
 today_file = today+'-download-upload_staus.json'
 
 # Load Environment Variables
@@ -25,9 +26,15 @@ today_file = today+'-download-upload_staus.json'
 host = os.environ['HOST']
 port = int(os.environ['PORT'])
 old_file_prefix = os.environ['OLD_FILE_PREFIX']
-file_prefix = os.environ['FILE_PREFIX']          # dt.strftime('pod%m%d%y')
+file_prefix = str(os.environ['FILE_PREFIX'] )                   # dt.strftime('pod%m%d%y')
 applogs = os.environ['APPLICATION_LOGS']
 destination_s3_bucket = os.environ['DESTINATION_S3_BUCKET']
+remote_dir = os.environ['REMOTE_SFTP_LOCATION']                 # Remote SFTP directory location
+job_type =  os.environ['JOB_TYPE']                              # upload for regular jobs, reupload for missed or custom execution.
+reprocess_file_list = os.environ['REPROCESS_FILE_LIST']         # CSV file list input
+sftp_username =  os.environ['SFTP_USERNAME']                    # 
+sftp_password =  os.environ['SFTP_PASSWORD']                    # decode = base64.b64decode("cmVkaGF0").decode("utf-8")
+
 
 # Configure logging
 
@@ -80,7 +87,6 @@ def check_existence_of_file():
          This function will retrieve the local file data
          It checks if there is any existing local file which has content
          within it, in case no file is found it will create a new file.
-
          This file will be used to store a history of downloaded data.
          It will be later used to resume downloading and avoid re upload.
     '''
@@ -107,8 +113,6 @@ def check_existence_of_file():
             pass
 
 
-
-
 def update_download_record(filename, filestatus, remote_file_size):
     '''
      This function is used to create dictionary value for the
@@ -118,7 +122,7 @@ def update_download_record(filename, filestatus, remote_file_size):
     global upl_down_status_dict
     
     try:
-        upl_down_status_dict[today].update({filename: {'filestatus': filestatus, 'filesize':  remote_file_size}})
+        upl_down_status_dict[downloaded].update({filename: {'filestatus': filestatus, 'filesize':  remote_file_size}})
         with open(today_file, "w+") as outfile:
             json.dump(upl_down_status_dict, outfile)
     except Exception as update_download_recordError:
@@ -172,7 +176,6 @@ def remove_old_artifacts(old_file_prefix):
         logging.info("No old file has been found : %s " % (noFileerror))
 
 
-
 def printtotals(transferred, tobetransferred):
 
     # A call back function for sftp transfers.
@@ -195,19 +198,24 @@ def sftp_transport():
     '''
     
     start = timer()
-    #host, port = "13.126.198.130", 22
-    username, password = 'sftpadmin', 'redhat'
+    # host, port = "13.126.198.130", 22
+    # username, password = 'sftpadmin', 'password'
     try:
         # Connect
         transport = paramiko.Transport((host, port))
-        # Auth
-        decode = base64.b64decode("cmVkaGF0").decode("utf-8")
-        transport.connect(None, username, decode)
+        # Auth 
+        decode = base64.b64decode(sftp_password).decode("utf-8")
+        transport.connect(None, sftp_username, decode)
         # Initiate SFTP
         sftp = paramiko.SFTPClient.from_transport(transport)
-        # SFTP Commands
-        file_list = sftp.listdir()
-        remote_dir = os.environ['REMOTE_SFTP_LOCATION']
+
+        if job_type == "upload":    
+            # SFTP Command to list all the contents within sftp remote location.
+            file_list = sftp.listdir()
+            complete_file_prefix =  file_prefix+yesterday
+
+        else:
+            file_list = list(reprocess_file_list)
 
         def download_file(remote_get_loc, local_put_loc):
 
@@ -215,9 +223,14 @@ def sftp_transport():
             localpath = local_put_loc
             sftp.get(remotepath, localpath, callback=printtotals)
 
+        
         for file_name in file_list:
 
-            if bool(re.fullmatch(file_prefix + '[0-9]{4,5}.tar', file_name)) and (file_name not in upl_down_status_dict[today].keys()):
+            #if bool(re.fullmatch(complete_file_prefix + '[0-9]{4,5}.tar', file_name)) and (file_name not in upl_down_status_dict[downloaded].keys()):
+            if bool(re.fullmatch(complete_file_prefix + '[0-9]{4,5}.tar', file_name)) and \
+                    ((file_name not in upl_down_status_dict[uploaded].keys()) or \
+                     (file_name not in upl_down_status_dict[downloaded].keys())):
+
                 print("Downloading file :", file_name)
                 transpose_input1 = remote_dir + file_name
                 get_cwd = os.getcwd()
@@ -326,6 +339,7 @@ def shutdown(signum, frame):
     # Finish the must to do tasks before SIGKILL...
     # This is very usefull while handling SGTERM exception.
     # https://aws.amazon.com/blogs/containers/graceful-shutdowns-with-ecs/
+
     print('Caught SIGTERM, shutting down')
     logging.info("Caught SIGTERM, shutting down... running must do task..)
     upload_file_to_s3(today_file, destination_s3_bucket, today_file)
