@@ -131,7 +131,7 @@ def update_download_record(filename, filestatus, remote_file_size):
 
 
 def update_upload_record(filename, filestatus):
-
+    global upl_down_status_dict
     '''
      This function is used to create dictionary value for the
      uploaded files in s3 bucket.
@@ -187,6 +187,8 @@ def printtotals(transferred, tobetransferred):
 
 # Open a transport
 def sftp_transport():
+    
+    global upl_down_status_dict
     '''
      Sibling main function, function is responsible for below tasks
      1. Establish a SFTP Connection to remote host using authentication credentials.
