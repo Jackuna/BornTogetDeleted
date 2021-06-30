@@ -28,7 +28,7 @@ port = int(os.environ['PORT'])
 old_file_prefix = os.environ['OLD_FILE_PREFIX']
 file_prefix = str(os.environ['FILE_PREFIX'] )                   # dt.strftime('pod%m%d%y')
 applogs = os.environ['APPLICATION_LOGS']
-destination_s3_bucket = os.environ['DESTINATION_S3_BUCKET']+'/'+today
+destination_s3_bucket = os.environ['DESTINATION_S3_BUCKET']
 remote_dir = os.environ['REMOTE_SFTP_LOCATION']                 # Remote SFTP directory location
 job_type =  os.environ['JOB_TYPE']                              # upload for regular jobs, reupload for missed or custom execution.
 reprocess_file_list = os.environ['REPROCESS_FILE_LIST']         # CSV file list input
@@ -67,8 +67,8 @@ def check_todays_up_down_status():
      upload download process earlier within same day.
     '''
     try:
-        s3.head_object(Bucket=destination_s3_bucket, Key=today_file)
-        s3.download_file(destination_s3_bucket, today_file, today_file)
+        s3.head_object(Bucket=destination_s3_bucket, Key=tody+'/'+today_file)
+        s3.download_file(destination_s3_bucket, tody+'/'+today_file, today_file)
         check_existence_of_file()
 
     except ClientError as exception1:
