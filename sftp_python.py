@@ -267,7 +267,7 @@ def sftp_transport():
                 
                 # Here it's uploading the above downloaded file into S3.
                 try:
-                    upload_file_to_s3(file_name, destination_s3_bucket, file_name)
+                    upload_file_to_s3(file_name, destination_s3_bucket, today+'/'+file_name)
                     logging.info(" %s uploaded to S3 " % (file_name))
                     try:
                         update_upload_record(file_name, "Success")
@@ -350,7 +350,7 @@ def shutdown(signum, frame):
 
     print('Caught SIGTERM, shutting down')
     logging.info("Caught SIGTERM, shutting down... running must do task..")
-    upload_file_to_s3(today_file, destination_s3_bucket, today_file)
+    upload_file_to_s3(today_file, destination_s3_bucket, today+'/'+today_file)
     exit(0)
 
 if __name__ == '__main__':
@@ -365,7 +365,7 @@ if __name__ == '__main__':
     finally:
         try:
             print("Uploading new download-upload status file to S3")
-            upload_file_to_s3(today_file, destination_s3_bucket, today_file)
+            upload_file_to_s3(today_file, destination_s3_bucket, today+'/'+today_file)
             #upload_tos3_task()
         except Exception as upload_exception:
             print("Failed to Upload", upload_exception)
