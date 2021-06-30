@@ -67,8 +67,8 @@ def check_todays_up_down_status():
      upload download process earlier within same day.
     '''
     try:
-        s3.head_object(Bucket=destination_s3_bucket, Key=tody+'/'+today_file)
-        s3.download_file(destination_s3_bucket, tody+'/'+today_file, today_file)
+        s3.head_object(Bucket=destination_s3_bucket, Key=today+'/'+today_file)
+        s3.download_file(destination_s3_bucket, today+'/'+today_file, today_file)
         check_existence_of_file()
 
     except ClientError as exception1:
