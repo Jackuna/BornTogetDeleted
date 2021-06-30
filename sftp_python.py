@@ -188,7 +188,6 @@ def printtotals(transferred, tobetransferred):
 # Open a transport
 def sftp_transport():
     
-    global upl_down_status_dict
     '''
      Sibling main function, function is responsible for below tasks
      1. Establish a SFTP Connection to remote host using authentication credentials.
@@ -217,6 +216,7 @@ def sftp_transport():
             complete_file_prefix =  file_prefix+yesterday
             regex_string = '[0-9]{4,5}.tar'
             print("Processing :", file_list, complete_file_prefix, regex_string)
+            upl_down_status_dict = globals()['upl_down_status_dict']
 
         else:
             file_list = reprocess_file_list.split(sep=',')
